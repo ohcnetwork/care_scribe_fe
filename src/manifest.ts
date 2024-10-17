@@ -8,7 +8,7 @@ const manifest: PluginManifest = {
   components: {
 
   },
-  Entry: <Entry/>,
+  Entry: Entry,
   navItems: [],
 };
 

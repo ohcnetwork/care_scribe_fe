@@ -22,3 +22,25 @@ export type ScribeModel = {
     | "COMPLETED"
     | "FAILED";
 };
+
+export type ScribeStatus =
+    | "FAILED"
+    | "IDLE"
+    | "RECORDING"
+    | "UPLOADING"
+    | "TRANSCRIBING"
+    | "THINKING"
+    | "REVIEWING";
+
+export type ScribeFieldOption = {
+    value: string,
+    text: string
+}
+
+export type ScribeField = {
+    type: "string" | "number" | "date" | "datetime-local" | "select" | "cui-select" | "radio" | "checkbox"
+    fieldElement: Element,
+    label: string;
+    options?: ScribeFieldOption[];
+    value: string | null;
+}

@@ -3,7 +3,6 @@ import { Type } from "@/Redux/api";
 import { ScribeModel } from "../types";
 
 const routes = {
-  scribe: {
     createScribe: {
       path: "/api/care_scribe/scribe/",
       method: "POST",
@@ -33,7 +32,7 @@ const routes = {
       TBody: Type<Partial<FileUploadModel>>(),
       TRes: Type<FileUploadModel>(),
     },
-  },
+    
 } as const;
 
 export default routes;
