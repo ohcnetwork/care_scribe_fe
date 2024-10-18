@@ -9,11 +9,12 @@ import uploadFile from "@/Utils/request/uploadFile";
 import TextAreaFormField from "@/Components/Form/FormFields/TextAreaFormField";
 import ButtonV2 from "@/Components/Common/components/ButtonV2";
 import CareIcon from "@/CAREUI/icons/CareIcon";
-import { scrapeFields, scribeReview } from "../utils";
+import { getFieldsToReview, scrapeFields } from "../utils";
 import * as Notify from "@/Utils/Notifications";
 import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
 import Lottie from "lottie-react";
+import ScribeReview from "./Review";
 
 export function Controller() {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");
@@ -27,6 +28,8 @@ export function Controller() {
     [key: string]: unknown;
   }>();
   const [instanceId, setInstanceId] = useState<string>();
+  const [toReview, setToReview] =
+    useState<(ScribeField & { newValue: unknown })[]>();
 
   //const { blob, waveform, resetRecording, startRecording, stopRecording } =
   //  useVoiceRecorder((permission: boolean) => {
@@ -276,7 +279,7 @@ export function Controller() {
     const aiResponse = await getAIResponse(instanceId, fields);
     setStatus("REVIEWING");
     setLastAIResponse(aiResponse);
-    scribeReview(aiResponse, fields);
+    setToReview(getFieldsToReview(aiResponse, fields));
   };
 
   const handleStartRecording = () => {
@@ -300,6 +303,7 @@ export function Controller() {
     const aiResponse = await getAIResponse(instanceId, fields);
     setStatus("REVIEWING");
     setLastAIResponse(aiResponse);
+    setToReview(getFieldsToReview(aiResponse, fields));
   };
 
   const getWaveformColor = (height: number): string => {
@@ -327,7 +331,7 @@ export function Controller() {
         ))*/}
       </div>
       <div
-        className={`fixed bottom-5 right-5 z-20 flex flex-col items-end gap-4 transition-all`}
+        className={`fixed bottom-5 right-5 z-40 flex flex-col items-end gap-4 transition-all`}
       >
         <div
           className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[300px]"} w-full overflow-hidden rounded-2xl border border-secondary-400 bg-white transition-all delay-100`}
@@ -386,6 +390,15 @@ export function Controller() {
           }
         />
       </div>
+      {toReview && (
+        <ScribeReview
+          toReview={toReview}
+          onReviewComplete={() => {
+            setToReview(undefined);
+            setStatus("IDLE");
+          }}
+        />
+      )}
     </>
   );
 }

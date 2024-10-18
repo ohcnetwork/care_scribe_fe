@@ -76,7 +76,6 @@ export const scrapeFields = () => {
     return fields;
 }
 
-export const scribeReview = (aiResponse: ScribeAIResponse, scrapedFields: ScribeField[]) => {
-    const fieldsToReview = scrapedFields.map((f, i) => ({ ...f, newValue: aiResponse[i] })).filter(f => f.newValue);
-    console.log(fieldsToReview);
+export const getFieldsToReview = (aiResponse: ScribeAIResponse, scrapedFields: ScribeField[]) => {
+    return scrapedFields.map((f, i) => ({ ...f, newValue: aiResponse[i] })).filter(f => f.newValue);
 }
