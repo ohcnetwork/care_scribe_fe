@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ScribeStatus } from "../types";
+import { ScribeField, ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
 import { useTimer } from "@/Utils/useTimer";
 import useSegmentedRecording from "@/Utils/useSegmentedRecorder";
@@ -9,8 +9,11 @@ import uploadFile from "@/Utils/request/uploadFile";
 import TextAreaFormField from "@/Components/Form/FormFields/TextAreaFormField";
 import ButtonV2 from "@/Components/Common/components/ButtonV2";
 import CareIcon from "@/CAREUI/icons/CareIcon";
-import { scrapeFields } from "../utils";
+import { scrapeFields, scribeReview } from "../utils";
 import * as Notify from "@/Utils/Notifications";
+import ScribeButton from "./ScribeButton";
+import animationData from "../assets/animation.json";
+import Lottie from "lottie-react";
 
 export function Controller() {
   const [status, setStatus] = useState<ScribeStatus>("IDLE");
@@ -20,7 +23,9 @@ export function Controller() {
   const timer = useTimer();
   const [scribedData, setScribedData] = useState<{ [key: number]: string }>();
   const [lastTranscript, setLastTranscript] = useState<string>();
-  const [lastAIResponse, setLastAIResponse] = useState<{[key: string]: unknown}>();
+  const [lastAIResponse, setLastAIResponse] = useState<{
+    [key: string]: unknown;
+  }>();
   const [instanceId, setInstanceId] = useState<string>();
 
   //const { blob, waveform, resetRecording, startRecording, stopRecording } =
@@ -86,19 +91,22 @@ export function Controller() {
           clearInterval(interval);
           reject(error);
         }
-      }, 5000);
+      }, 2500);
     });
   };
 
   // gets the AI response and returns only the data that has changes
-  const getAIResponse = async (scribeInstanceId: string) => {
-    const fields = await getHydratedFields();
+  const getAIResponse = async (
+    scribeInstanceId: string,
+    fields: ScribeField[],
+  ) => {
+    const hfields = await getHydratedFields(fields);
     const updatedFieldsResponse = await poller(scribeInstanceId, "ai_response");
     const parsedFormData = JSON.parse(updatedFieldsResponse ?? "{}");
     // run type validations
     const changedData = Object.entries(parsedFormData)
       .filter(([k, v]) => {
-        const f = fields.find((f) => f.id === k);
+        const f = hfields.find((f) => f.id === k);
         if (!f) return false;
         if (v === f.current) return false;
         return true;
@@ -123,6 +131,7 @@ export function Controller() {
 
     const transcript = await poller(scribeInstanceId, "transcript");
     setLastTranscript(transcript);
+    setTranscript(transcript);
     return transcript;
   };
 
@@ -180,12 +189,12 @@ export function Controller() {
   };
 
   // Sets up a scribe instance with the available recordings. Returns the instance ID.
-  const createScribeInstance = async () => {
-    const fields = await getHydratedFields();
+  const createScribeInstance = async (fields: ScribeField[]) => {
+    const hfields = await getHydratedFields(fields);
     const response = await request(routes.createScribe, {
       body: {
         status: "CREATED",
-        form_data: fields,
+        form_data: hfields,
       },
     });
     if (response.error) throw Error("Error creating scribe instance");
@@ -218,10 +227,10 @@ export function Controller() {
   };*/
 
   // gets hydrated fields, but does not fetch them again unless ignoreCache is true
-  const getHydratedFields = async (ignoreCache?: boolean) => {
+  const getHydratedFields = async (fields: ScribeField[]) => {
     //if (context.hydratedInputs && !ignoreCache) return context.hydratedInputs;
     //return await hydrateValues();
-    const fields = scrapeFields();
+
     return fields.map((field, i) => ({
       friendlyName: field.label || "Unlabled Field",
       current: field.value,
@@ -263,9 +272,11 @@ export function Controller() {
     });
     if (res.error || !res.data) throw Error("Error updating scribe instance");
     setStatus("THINKING");
-    const aiResponse = await getAIResponse(instanceId);
+    const fields = scrapeFields();
+    const aiResponse = await getAIResponse(instanceId, fields);
     setStatus("REVIEWING");
     setLastAIResponse(aiResponse);
+    scribeReview(aiResponse, fields);
   };
 
   const handleStartRecording = () => {
@@ -280,12 +291,13 @@ export function Controller() {
     timer.reset();
     setStatus("UPLOADING");
     stopSegmentedRecording();
-    const instanceId = await createScribeInstance();
+    const fields = scrapeFields();
+    const instanceId = await createScribeInstance(fields);
     setInstanceId(instanceId);
     setStatus("TRANSCRIBING");
     await getTranscript(instanceId);
     setStatus("THINKING");
-    const aiResponse = await getAIResponse(instanceId);
+    const aiResponse = await getAIResponse(instanceId, fields);
     setStatus("REVIEWING");
     setLastAIResponse(aiResponse);
   };
@@ -301,16 +313,10 @@ export function Controller() {
     return classes[index];
   };
 
-  useEffect(() => {
-    //reset the reveiwed responses if the status changes
-    if (status !== "REVIEWING")
-      setLastTranscript(undefined);
-  }, [status]);
-
   return (
     <>
       <div
-        className={`flex flex-row-reverse items-end right-0 -bottom-0 h-32 w-[50vw] blur-md fixed z-10 pointer-events-none transition-all ${status === "RECORDING" ? "visible opacity-100" : "invisible opacity-0"}`}
+        className={`pointer-events-none fixed -bottom-0 right-0 z-10 flex h-32 w-[50vw] flex-row-reverse items-end blur-md transition-all ${status === "RECORDING" ? "visible opacity-100" : "invisible opacity-0"}`}
       >
         {/*waveform.map((wave, i) => (
           <div
@@ -321,26 +327,37 @@ export function Controller() {
         ))*/}
       </div>
       <div
-        className={`fixed bottom-5 right-5 z-20 transition-all flex flex-col gap-4 items-end`}
+        className={`fixed bottom-5 right-5 z-20 flex flex-col items-end gap-4 transition-all`}
       >
         <div
-          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[300px]"} w-full transition-all rounded-lg overflow-hidden delay-100 bg-secondary-300 border border-secondary-400 shadow-lg`}
+          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[300px]"} w-full overflow-hidden rounded-2xl border border-secondary-400 bg-white transition-all delay-100`}
         >
           {status === "RECORDING" && (
-            <div className="p-4 py-10 flex items-center justify-center">
+            <div className="flex items-center justify-center p-4 py-10">
               <div className="text-center">
-                <div className="text-xl font-black ">{timer.time}</div>
+                <div className="text-xl font-black">{timer.time}</div>
                 <p>We are hearing you...</p>
               </div>
             </div>
           )}
-          {status === "TRANSCRIBING" && <div>Transcribing</div>}
-          {lastTranscript && status === "REVIEWING" && (
-            <div className="p-4 md:w-[350px]">
+          {(status === "TRANSCRIBING" ||
+            status === "UPLOADING" ||
+            status === "THINKING") && (
+            <div className="flex flex-col items-center justify-center gap-2">
+              <div className="w-32">
+                <Lottie animationData={animationData} loop autoPlay />
+              </div>
+              <div className="-translate-y-4 text-sm text-secondary-700">
+                Copilot is thinking...
+              </div>
+            </div>
+          )}
+          {typeof lastTranscript !== "undefined" && status === "REVIEWING" && (
+            <div className="p-4 md:w-[300px]">
               <div className="text-base font-semibold">
                 {t("transcript_information")}
               </div>
-              <p className="text-xs text-gray-800 mb-4">
+              <p className="mb-4 text-xs text-gray-800">
                 {t("transcript_edit_info")}
               </p>
               <TextAreaFormField
@@ -354,7 +371,7 @@ export function Controller() {
               <ButtonV2
                 loading={status !== "REVIEWING"}
                 disabled={transcript === lastTranscript}
-                className="w-full mt-4"
+                className="mt-4 w-full"
                 onClick={() => transcript && handleUpdateTranscript(transcript)}
               >
                 {t("process_transcript")}
@@ -362,36 +379,12 @@ export function Controller() {
             </div>
           )}
         </div>
-        <ButtonV2
-          variant={
-            status === "IDLE"
-              ? "primary"
-              : status === "RECORDING"
-                ? "danger"
-                : "secondary"
-          }
-          className={`transition-all text-base`}
+        <ScribeButton
+          status={status}
           onClick={
-            status !== "RECORDING"
-              ? handleStartRecording
-              : handleStopRecording
+            status !== "RECORDING" ? handleStartRecording : handleStopRecording
           }
-        >
-          <CareIcon
-            icon={
-              status === "IDLE"
-                ? "l-microphone"
-                : status === "RECORDING"
-                  ? "l-microphone-slash"
-                  : "l-redo"
-            }
-          />
-          {status === "IDLE"
-            ? t("voice_autofill")
-            : status === "RECORDING"
-              ? t("stop_recording")
-              : t("retake_recording")}
-        </ButtonV2>
+        />
       </div>
     </>
   );

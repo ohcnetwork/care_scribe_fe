@@ -1,15 +1,15 @@
-import { ScribeField } from "./types";
+import { ScribeAIResponse, ScribeField } from "./types";
 
 const isVisible = (elem: HTMLElement) => !!(elem.offsetWidth || elem.offsetHeight || elem.getClientRects().length || window.getComputedStyle(elem).visibility !== "hidden");
 
 export const scrapeFields = () => {
     const formElement = document.querySelector(`[data-scribe-form="true"]`) as HTMLElement;
     if (!formElement || !isVisible(formElement)) throw Error("Cannot find a scribeable form. Make sure to mark forms with the \"data-scribe-form\" attribute");
-    const inputElements = [...(formElement.querySelectorAll('input:not([type="submit"]):not([role="combobox"])') as NodeListOf<HTMLInputElement>).values().filter(ele => isVisible(ele))];
-    const textAreaElements = [...(formElement.querySelectorAll('textarea') as NodeListOf<HTMLTextAreaElement>).values().filter(ele => isVisible(ele))]
-    const selectElements = [...(formElement.querySelectorAll(`select`) as NodeListOf<HTMLSelectElement>).values().filter(ele => isVisible(ele))];
+    const inputElements = [...formElement.querySelectorAll('input:not([type="submit"]):not([role="combobox"])')].filter(ele => isVisible(ele as HTMLElement)) as HTMLInputElement[];
+    const textAreaElements = [...formElement.querySelectorAll('textarea')].filter(ele => isVisible(ele as HTMLElement)) as HTMLTextAreaElement[];
+    const selectElements = [...(formElement.querySelectorAll(`select`))].filter(ele => isVisible(ele as HTMLElement)) as HTMLSelectElement[];
     // Care UI (Headless UI) does not use the traditional <select> field for dropdowns.
-    const careUISelectElements = [...(formElement.querySelectorAll(`[data-cui-listbox]`) as NodeListOf<HTMLButtonElement>).values().filter(ele => isVisible(ele))];
+    const careUISelectElements = [...formElement.querySelectorAll(`[data-cui-listbox]`)].filter(ele => isVisible(ele as HTMLElement));
 
     const getInputType: (t: string | null) => ScribeField["type"] = (type: string | null) =>
         type && ["string", "number", "date", "datetime-local", "radio", "checkbox"].includes(type) ? type as ScribeField["type"] : "string"
@@ -74,4 +74,9 @@ export const scrapeFields = () => {
     ]
 
     return fields;
+}
+
+export const scribeReview = (aiResponse: ScribeAIResponse, scrapedFields: ScribeField[]) => {
+    const fieldsToReview = scrapedFields.map((f, i) => ({ ...f, newValue: aiResponse[i] })).filter(f => f.newValue);
+    console.log(fieldsToReview);
 }

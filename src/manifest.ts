@@ -5,9 +5,7 @@ const manifest: PluginManifest = {
   plugin: "care-scribe",
   routes: {},
   extends: [],
-  components: {
-
-  },
+  components: {},
   Entry: Entry,
   navItems: [],
 };

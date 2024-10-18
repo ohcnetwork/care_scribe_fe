@@ -44,3 +44,7 @@ export type ScribeField = {
     options?: ScribeFieldOption[];
     value: string | null;
 }
+
+export type ScribeAIResponse = {
+    [field_number: number]: unknown
+}
