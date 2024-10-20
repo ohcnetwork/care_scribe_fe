@@ -48,3 +48,7 @@ export type ScribeField = {
 export type ScribeAIResponse = {
     [field_number: number]: unknown
 }
+
+export type ScribeFieldSuggestion = ScribeField & { newValue: unknown }
+
+export type ScribeFieldReviewedSuggestion = ScribeFieldSuggestion & { suggestionIndex: number, approved?: boolean }

@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ScribeField, ScribeStatus } from "../types";
+import { useState } from "react";
+import { ScribeField, ScribeFieldSuggestion, ScribeStatus } from "../types";
 import { useTranslation } from "react-i18next";
 import { useTimer } from "@/Utils/useTimer";
 import useSegmentedRecording from "@/Utils/useSegmentedRecorder";
@@ -9,7 +9,7 @@ import uploadFile from "@/Utils/request/uploadFile";
 import TextAreaFormField from "@/Components/Form/FormFields/TextAreaFormField";
 import ButtonV2 from "@/Components/Common/components/ButtonV2";
 import CareIcon from "@/CAREUI/icons/CareIcon";
-import { getFieldsToReview, scrapeFields } from "../utils";
+import { getFieldsToReview, scrapeFields, updateFieldValue } from "../utils";
 import * as Notify from "@/Utils/Notifications";
 import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
@@ -22,25 +22,10 @@ export function Controller() {
   const [micAllowed, setMicAllowed] = useState<null | boolean>(null);
   const [transcript, setTranscript] = useState<string>();
   const timer = useTimer();
-  const [scribedData, setScribedData] = useState<{ [key: number]: string }>();
   const [lastTranscript, setLastTranscript] = useState<string>();
-  const [lastAIResponse, setLastAIResponse] = useState<{
-    [key: string]: unknown;
-  }>();
   const [instanceId, setInstanceId] = useState<string>();
-  const [toReview, setToReview] =
-    useState<(ScribeField & { newValue: unknown })[]>();
-
-  //const { blob, waveform, resetRecording, startRecording, stopRecording } =
-  //  useVoiceRecorder((permission: boolean) => {
-  //    if (!permission) {
-  //      handleStopRecording();
-  //      resetRecording();
-  //      setMicAllowed(false);
-  //    } else {
-  //      setMicAllowed(true);
-  //    }
-  //  });
+  const [toReview, setToReview] = useState<ScribeFieldSuggestion[]>();
+  const [openEditTranscript, setOpenEditTranscript] = useState(false);
 
   const {
     isRecording,
@@ -262,6 +247,7 @@ export function Controller() {
   const handleUpdateTranscript = async (updatedTranscript: string) => {
     if (updatedTranscript === lastTranscript) return;
     if (!instanceId) throw Error("Cannot find scribe instance");
+    setToReview(undefined);
     setLastTranscript(updatedTranscript);
     const res = await request(routes.updateScribe, {
       body: {
@@ -278,11 +264,11 @@ export function Controller() {
     const fields = scrapeFields();
     const aiResponse = await getAIResponse(instanceId, fields);
     setStatus("REVIEWING");
-    setLastAIResponse(aiResponse);
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
   const handleStartRecording = () => {
+    setToReview(undefined);
     resetRecording();
     timer.start();
     setStatus("RECORDING");
@@ -302,39 +288,21 @@ export function Controller() {
     setStatus("THINKING");
     const aiResponse = await getAIResponse(instanceId, fields);
     setStatus("REVIEWING");
-    setLastAIResponse(aiResponse);
     setToReview(getFieldsToReview(aiResponse, fields));
   };
 
-  const getWaveformColor = (height: number): string => {
-    const classes = [
-      "bg-primary-500",
-      "bg-primary-600",
-      "bg-primary-700",
-      "bg-primary-800",
-    ];
-    const index = Math.floor(height % classes.length);
-    return classes[index];
+  const handleCancel = () => {
+    setStatus("IDLE");
+    setToReview(undefined);
   };
 
   return (
     <>
       <div
-        className={`pointer-events-none fixed -bottom-0 right-0 z-10 flex h-32 w-[50vw] flex-row-reverse items-end blur-md transition-all ${status === "RECORDING" ? "visible opacity-100" : "invisible opacity-0"}`}
-      >
-        {/*waveform.map((wave, i) => (
-          <div
-            key={i}
-            style={{ height: `${wave * 1.5}%` }}
-            className={`w-full flex-1 transition-all rounded-t-[20px] ${getWaveformColor(wave)}`}
-          />
-        ))*/}
-      </div>
-      <div
         className={`fixed bottom-5 right-5 z-40 flex flex-col items-end gap-4 transition-all`}
       >
         <div
-          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[300px]"} w-full overflow-hidden rounded-2xl border border-secondary-400 bg-white transition-all delay-100`}
+          className={`${status === "IDLE" ? "max-h-0 opacity-0" : "max-h-[300px]"} w-full overflow-hidden rounded-2xl ${status === "REVIEWING" && !(openEditTranscript || (toReview && !toReview.length)) ? "" : "border border-secondary-400"} bg-white transition-all delay-100`}
         >
           {status === "RECORDING" && (
             <div className="flex items-center justify-center p-4 py-10">
@@ -356,44 +324,92 @@ export function Controller() {
               </div>
             </div>
           )}
-          {typeof lastTranscript !== "undefined" && status === "REVIEWING" && (
-            <div className="p-4 md:w-[300px]">
-              <div className="text-base font-semibold">
-                {t("transcript_information")}
+          {typeof lastTranscript !== "undefined" &&
+            status === "REVIEWING" &&
+            (openEditTranscript || (toReview && !toReview.length)) && (
+              <div className="p-4 md:w-[300px]">
+                {toReview && !toReview.length && (
+                  <p className="mb-4 text-sm font-bold text-red-500">
+                    We could not autofill any fields from what you said
+                  </p>
+                )}
+                <div className="text-base font-semibold">
+                  {t("transcript_information")}
+                </div>
+
+                <p className="mb-4 text-xs text-gray-800">
+                  {t("transcript_edit_info")}
+                </p>
+                <TextAreaFormField
+                  name="transcript"
+                  disabled={status !== "REVIEWING"}
+                  value={transcript}
+                  onChange={(e) => setTranscript(e.value)}
+                  errorClassName="hidden"
+                  placeholder="Transcript"
+                />
+                <ButtonV2
+                  loading={status !== "REVIEWING"}
+                  disabled={transcript === lastTranscript}
+                  className="mt-4 w-full"
+                  onClick={() =>
+                    transcript && handleUpdateTranscript(transcript)
+                  }
+                >
+                  {t("process_transcript")}
+                </ButtonV2>
+                {!(toReview && !toReview.length) && (
+                  <button
+                    className="absolute right-4 top-4 text-xs text-gray-600 hover:text-gray-800"
+                    onClick={() => setOpenEditTranscript(false)}
+                  >
+                    {t("close")}
+                  </button>
+                )}
               </div>
-              <p className="mb-4 text-xs text-gray-800">
-                {t("transcript_edit_info")}
-              </p>
-              <TextAreaFormField
-                name="transcript"
-                disabled={status !== "REVIEWING"}
-                value={transcript}
-                onChange={(e) => setTranscript(e.value)}
-                errorClassName="hidden"
-                placeholder="Transcript"
-              />
-              <ButtonV2
-                loading={status !== "REVIEWING"}
-                disabled={transcript === lastTranscript}
-                className="mt-4 w-full"
-                onClick={() => transcript && handleUpdateTranscript(transcript)}
-              >
-                {t("process_transcript")}
-              </ButtonV2>
-            </div>
-          )}
+            )}
         </div>
-        <ScribeButton
-          status={status}
-          onClick={
-            status !== "RECORDING" ? handleStartRecording : handleStopRecording
-          }
-        />
+        {typeof lastTranscript !== "undefined" &&
+          status === "REVIEWING" &&
+          !(openEditTranscript || (toReview && !toReview.length)) && (
+            <button
+              onClick={() => setOpenEditTranscript(true)}
+              className="max-h-[100px] max-w-[200px] overflow-hidden rounded-lg bg-black/20 p-2 text-left text-sm text-white hover:bg-black/40"
+            >
+              {transcript}
+            </button>
+          )}
+        <div className="flex items-center gap-2">
+          {status === "REVIEWING" && (
+            <button
+              onClick={handleCancel}
+              className="flex aspect-square h-full items-center justify-center rounded-full border border-secondary-400 bg-secondary-300 p-4 text-xl transition-all hover:bg-secondary-400"
+              title={t("cancel")}
+            >
+              <CareIcon icon="l-times" />
+            </button>
+          )}
+          <ScribeButton
+            status={status}
+            onClick={
+              status !== "RECORDING"
+                ? handleStartRecording
+                : handleStopRecording
+            }
+          />
+        </div>
       </div>
-      {toReview && (
+      {toReview && toReview.length && (
         <ScribeReview
           toReview={toReview}
-          onReviewComplete={() => {
+          onReviewComplete={(approvedFields) => {
+            approvedFields.some((a) => a.approved) &&
+              Notify.Success({ msg: "Autofilled fields" });
+            setTimeout(() => {
+              approvedFields.forEach(
+                (f) => f.approved && updateFieldValue(f, true),
+              );
+            }, 250);
             setToReview(undefined);
             setStatus("IDLE");
           }}

@@ -1,4 +1,4 @@
-import { ScribeAIResponse, ScribeField } from "./types";
+import { ScribeAIResponse, ScribeField, ScribeFieldSuggestion } from "./types";
 
 const isVisible = (elem: HTMLElement) => !!(elem.offsetWidth || elem.offsetHeight || elem.getClientRects().length || window.getComputedStyle(elem).visibility !== "hidden");
 
@@ -78,4 +78,28 @@ export const scrapeFields = () => {
 
 export const getFieldsToReview = (aiResponse: ScribeAIResponse, scrapedFields: ScribeField[]) => {
     return scrapedFields.map((f, i) => ({ ...f, newValue: aiResponse[i] })).filter(f => f.newValue);
+}
+
+export const renderFieldValue = (
+    field: ScribeFieldSuggestion,
+    useNewValue?: boolean,
+) => {
+    if (!["string", "number"].includes(typeof field.value))
+        return "N/A";
+    return field.options
+        ? field.options.find(
+            (o) => o.value === (useNewValue ? field.newValue : field.value),
+        )?.text
+        : ((useNewValue ? field.newValue : field.value) as string | number);
+};
+
+export const updateFieldValue = (field: ScribeFieldSuggestion, useNewValue?: boolean) => {
+    const val = useNewValue ? field.newValue : field.value
+    switch (field.type) {
+        case "cui-select":
+            break;
+
+        default:
+            (field.fieldElement as HTMLInputElement).value = val as string;
+    }
 }

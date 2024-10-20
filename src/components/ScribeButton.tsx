@@ -12,7 +12,8 @@ export default function ScribeButton(props: {
   return (
     <button
       onClick={onClick}
-      className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 text-white hover:bg-primary-600" : "border border-secondary-400 bg-secondary-200 hover:bg-secondary-300"} transition-all`}
+      className={`group z-10 flex items-center rounded-full ${status === "IDLE" ? "bg-primary-500 text-white hover:bg-primary-600" : "border border-secondary-400 bg-secondary-200 hover:bg-secondary-300"} transition-all disabled:bg-secondary-300`}
+      disabled={["TRANSCRIBING", "THINKING"].includes(status)}
     >
       <div
         className={`flex aspect-square h-full items-center justify-center rounded-full ${status === "IDLE" ? "bg-primary-600 group-hover:bg-primary-700" : "bg-secondary-300 group-hover:bg-secondary-400"} p-4 text-xl`}
