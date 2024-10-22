@@ -1,6 +1,6 @@
-import { ScribeAIResponse, ScribeField, ScribeFieldSuggestion } from "./types";
+import { ScribeAIResponse, ScribeField, ScribeFieldSuggestion, ScribeFieldTypes } from "./types";
 
-const isVisible = (elem: HTMLElement) => !!(elem.offsetWidth || elem.offsetHeight || elem.getClientRects().length || window.getComputedStyle(elem).visibility !== "hidden");
+const isVisible = (elem: HTMLElement) => !!(elem.offsetWidth || elem.offsetHeight || elem.getClientRects().length || window.getComputedStyle(elem).visibility !== "hidden") && !elem.closest('[data-scribe-ignore="true"]');
 
 export const scrapeFields = () => {
     const formElement = document.querySelector(`[data-scribe-form="true"]`) as HTMLElement;
@@ -43,7 +43,9 @@ export const scrapeFields = () => {
         type: "string",
         fieldElement: ele,
         label: ele.labels?.[0]?.innerText || "",
-        value: ele.value
+        value: ele.value,
+        customPrompt: ele.getAttribute("data-scribe-prompt") || undefined,
+        customExample: ele.getAttribute("data-scribe-example") || undefined
     }))
 
     const selects: ScribeField[] = selectElements.map((ele) => ({
@@ -54,7 +56,9 @@ export const scrapeFields = () => {
             value: option?.value || "",
             text: option?.innerText
         })),
-        value: ele.value
+        value: ele.value,
+        customPrompt: ele.getAttribute("data-scribe-prompt") || undefined,
+        customExample: ele.getAttribute("data-scribe-example") || undefined
     }))
 
     const cuiSelects: ScribeField[] = careUISelectElements.map((ele) => ({
@@ -62,7 +66,9 @@ export const scrapeFields = () => {
         fieldElement: ele,
         label: (ele.parentElement?.parentElement?.querySelector("label:not([data-headlessui-state])") as HTMLLabelElement)?.innerText,
         options: (JSON.parse(ele.getAttribute("data-cui-listbox-options") || "[]") as [string, string][]).map(([value, text]) => ({ text, value })),
-        value: JSON.parse(ele.getAttribute("data-cui-listbox-value") || `""`)
+        value: JSON.parse(ele.getAttribute("data-cui-listbox-value") || `""`),
+        customPrompt: ele.getAttribute("data-scribe-prompt") || undefined,
+        customExample: ele.getAttribute("data-scribe-example") || undefined
     }))
 
     const fields = [
@@ -93,13 +99,43 @@ export const renderFieldValue = (
         : ((useNewValue ? field.newValue : field.value) as string | number);
 };
 
+export const sleep = async (seconds: number) => {
+    await new Promise<void>(resolve => {
+        setTimeout(() => {
+            resolve();
+        }, seconds);
+    });
+}
+
 export const updateFieldValue = (field: ScribeFieldSuggestion, useNewValue?: boolean) => {
-    const val = useNewValue ? field.newValue : field.value
+    const val = (useNewValue ? field.newValue : field.value) as string;
+    const element = field.fieldElement as HTMLElement;
     switch (field.type) {
         case "cui-select":
+            element.setAttribute("data-cui-listbox-value", JSON.stringify(val || ""));
             break;
 
         default:
+            console.log("Updating to", val);
             (field.fieldElement as HTMLInputElement).value = val as string;
+    }
+}
+
+export const SCRIBE_PROMPT_MAP: { [key in ScribeFieldTypes | "default"]?: { prompt: string, example: string } } = {
+    default: {
+        prompt: "A normal string value",
+        example: "A value"
+    },
+    date: {
+        prompt: "A date value",
+        example: "2003-12-21"
+    },
+    "datetime-local": {
+        prompt: "A date time value",
+        example: "2003-12-21T23:10"
+    },
+    number: {
+        prompt: "An integer value",
+        example: "42"
     }
 }

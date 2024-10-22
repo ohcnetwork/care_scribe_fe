@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { ScribeFieldReviewedSuggestion, ScribeFieldSuggestion } from "../types";
 import CareIcon from "@/CAREUI/icons/CareIcon";
-import { renderFieldValue, updateFieldValue } from "../utils";
+import { renderFieldValue, sleep, updateFieldValue } from "../utils";
 
 export default function ScribeReview(props: {
   toReview: ScribeFieldSuggestion[];
@@ -35,13 +35,19 @@ export default function ScribeReview(props: {
     reviewIndex > 0 && setReviewIndex((i) => i - 1);
   };
 
+  const handleReviewComplete = async (
+    accepted?: typeof acceptedSuggestions,
+  ) => {
+    onReviewComplete(accepted || acceptedSuggestions);
+  };
+
   const handleForward = (accepted?: typeof acceptedSuggestions) => {
     reviewIndex < toReview.length - 1
       ? setReviewIndex((i) => i + 1)
-      : onReviewComplete(accepted || acceptedSuggestions);
+      : handleReviewComplete(accepted || acceptedSuggestions);
   };
 
-  const handleVerdict = (approved: boolean) => {
+  const handleVerdict = async (approved: boolean) => {
     const accepted = [
       ...acceptedSuggestions.filter((s) => s.suggestionIndex !== reviewIndex),
       {
@@ -50,13 +56,25 @@ export default function ScribeReview(props: {
         suggestionIndex: reviewIndex,
       },
     ];
+    if (!approved) updateFieldValue(reviewingField);
+    await sleep(150);
     setAcceptedSuggestions(accepted);
     handleForward(accepted);
   };
 
   useEffect(() => {
+    const page = document.querySelector("[data-cui-page]") as HTMLElement;
+    if (page) {
+      page.insertAdjacentHTML(
+        "beforeend",
+        `<div style="height:50vh;" data-scribe-spacer></div>`,
+      );
+    }
     updateFieldValue(reviewingField, true);
-    return () => updateFieldValue(reviewingField);
+    return () =>
+      document
+        .querySelectorAll(`[data-scribe-spacer]`)
+        .forEach((e) => e.remove());
   }, [reviewingField]);
 
   return (

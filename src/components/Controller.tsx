@@ -9,7 +9,13 @@ import uploadFile from "@/Utils/request/uploadFile";
 import TextAreaFormField from "@/Components/Form/FormFields/TextAreaFormField";
 import ButtonV2 from "@/Components/Common/components/ButtonV2";
 import CareIcon from "@/CAREUI/icons/CareIcon";
-import { getFieldsToReview, scrapeFields, updateFieldValue } from "../utils";
+import {
+  getFieldsToReview,
+  scrapeFields,
+  SCRIBE_PROMPT_MAP,
+  sleep,
+  updateFieldValue,
+} from "../utils";
 import * as Notify from "@/Utils/Notifications";
 import ScribeButton from "./ScribeButton";
 import animationData from "../assets/animation.json";
@@ -224,18 +230,12 @@ export function Controller() {
       current: field.value,
       id: `${i}`,
       description:
-        field.type === "date"
-          ? "A date value"
-          : field.type === "datetime-local"
-            ? "A datetime value"
-            : "A normal string value",
+        SCRIBE_PROMPT_MAP[field.type]?.prompt ||
+        SCRIBE_PROMPT_MAP["default"]?.prompt,
       type: "string",
       example:
-        field.type === "date"
-          ? "2003-12-21"
-          : field.type === "datetime-local"
-            ? "2003-12-21T23:10"
-            : "A value",
+        SCRIBE_PROMPT_MAP[field.type]?.example ||
+        SCRIBE_PROMPT_MAP["default"]?.example,
       options: field.options?.map((opt) => ({
         id: opt.value || "NONE",
         text: opt.text,
@@ -374,7 +374,7 @@ export function Controller() {
           !(openEditTranscript || (toReview && !toReview.length)) && (
             <button
               onClick={() => setOpenEditTranscript(true)}
-              className="max-h-[100px] max-w-[200px] overflow-hidden rounded-lg bg-black/20 p-2 text-left text-sm text-white hover:bg-black/40"
+              className="max-h-[100px] w-64 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-sm text-white hover:bg-black/40"
             >
               {transcript}
             </button>
@@ -402,14 +402,9 @@ export function Controller() {
       {toReview && toReview.length && (
         <ScribeReview
           toReview={toReview}
-          onReviewComplete={(approvedFields) => {
-            approvedFields.some((a) => a.approved) &&
-              Notify.Success({ msg: "Autofilled fields" });
-            setTimeout(() => {
-              approvedFields.forEach(
-                (f) => f.approved && updateFieldValue(f, true),
-              );
-            }, 250);
+          onReviewComplete={async (approvedFields) => {
+            const approved = approvedFields.filter((a) => a.approved);
+            approved && Notify.Success({ msg: "Autofilled fields" });
             setToReview(undefined);
             setStatus("IDLE");
           }}

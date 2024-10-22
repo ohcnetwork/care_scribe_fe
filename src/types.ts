@@ -30,19 +30,24 @@ export type ScribeStatus =
     | "UPLOADING"
     | "TRANSCRIBING"
     | "THINKING"
-    | "REVIEWING";
+    | "REVIEWING"
+    | "SCRIBING";
 
 export type ScribeFieldOption = {
     value: string,
     text: string
 }
 
+export type ScribeFieldTypes = "string" | "number" | "date" | "datetime-local" | "select" | "cui-select" | "radio" | "checkbox"
+
 export type ScribeField = {
-    type: "string" | "number" | "date" | "datetime-local" | "select" | "cui-select" | "radio" | "checkbox"
+    type: ScribeFieldTypes
     fieldElement: Element,
     label: string;
     options?: ScribeFieldOption[];
     value: string | null;
+    customPrompt?: string,
+    customExample?: string
 }
 
 export type ScribeAIResponse = {
