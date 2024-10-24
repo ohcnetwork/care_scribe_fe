@@ -6,8 +6,8 @@ import useSegmentedRecording from "@/Utils/useSegmentedRecorder";
 import request from "@/Utils/request/request";
 import routes from "../api/api";
 import uploadFile from "@/Utils/request/uploadFile";
-import TextAreaFormField from "@/Components/Form/FormFields/TextAreaFormField";
-import ButtonV2 from "@/Components/Common/components/ButtonV2";
+import TextAreaFormField from "@/components/Form/FormFields/TextAreaFormField";
+import ButtonV2 from "@/components/Common/components/ButtonV2";
 import CareIcon from "@/CAREUI/icons/CareIcon";
 import {
   getFieldsToReview,
@@ -374,7 +374,7 @@ export function Controller() {
           !(openEditTranscript || (toReview && !toReview.length)) && (
             <button
               onClick={() => setOpenEditTranscript(true)}
-              className="max-h-[100px] w-64 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-sm text-white hover:bg-black/40"
+              className="max-h-[100px] w-40 overflow-hidden rounded-lg bg-black/20 p-2 text-left text-xs text-white hover:bg-black/40"
             >
               {transcript}
             </button>

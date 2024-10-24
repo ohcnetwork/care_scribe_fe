@@ -18,7 +18,7 @@ export const scrapeFields = () => {
     const inputs: ScribeField[] = inputElements.filter(ele => !["radio", "checkbox"].includes(ele.getAttribute("type") || "")).map((ele) => ({
         type: getInputType(ele.getAttribute("type")),
         fieldElement: ele,
-        label: ele.labels?.[0]?.innerText || "",
+        label: ele.labels?.[0]?.innerText || ele.name || "",
         value: ele.value
     }))
 
@@ -30,7 +30,7 @@ export const scrapeFields = () => {
                     ele.getAttribute("name"), // use the `name` attribute as the key
                     {
                         type: getInputType(ele.getAttribute("type")),
-                        fieldElement: ele,
+                        fieldElement: ele.parentElement?.parentElement || ele,
                         label: (document.querySelector(`label[for=${ele.getAttribute("name")}]`) as HTMLLabelElement)?.innerText || "",
                         options: [...(document.querySelectorAll(`input[name=${ele.getAttribute("name")}]`) as NodeListOf<HTMLInputElement>)].map((inp) => ({ text: (document.querySelector(`label[for="${inp.id}"]`) as HTMLLabelElement).innerText, value: inp.value })),
                         value: [...(document.querySelectorAll(`input[name=${ele.getAttribute("name")}]`) as NodeListOf<HTMLInputElement>)].find(radio => radio.checked)?.value || null
@@ -115,8 +115,14 @@ export const updateFieldValue = (field: ScribeFieldSuggestion, useNewValue?: boo
             element.setAttribute("data-cui-listbox-value", JSON.stringify(val || ""));
             break;
 
+        case "radio":
+        case "checkbox":
+            element.querySelectorAll(`input`).forEach((e) => e.checked = false);
+            const toCheck = (element.querySelector(`input[value=${val || "__NULL__"}]`) as HTMLInputElement);
+            if (toCheck) toCheck.checked = true;
+            break;
+
         default:
-            console.log("Updating to", val);
             (field.fieldElement as HTMLInputElement).value = val as string;
     }
 }

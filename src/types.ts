@@ -1,4 +1,4 @@
-import { UserModel } from "@/Components/Users/models";
+import { UserModel } from "@/components/Users/models";
 
 export type ScribeModel = {
     external_id: string;

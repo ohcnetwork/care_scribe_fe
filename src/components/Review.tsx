@@ -101,17 +101,6 @@ export default function ScribeReview(props: {
         <div className="flex-1 bg-black/50 transition-all" />
       </div>
       <div className="absolute inset-x-0 bottom-0 flex flex-col items-center justify-center gap-4 p-4 text-white">
-        {["string", "number"].includes(typeof reviewingField.value) && (
-          <div className="flex items-center gap-2">
-            <div className="rounded-lg bg-red-500/50 p-2 text-red-900">
-              {renderFieldValue(reviewingField)}
-            </div>
-            <CareIcon icon="l-arrow-right" />
-            <div className="rounded-lg bg-green-500/50 p-2 text-green-900">
-              {renderFieldValue(reviewingField, true)}
-            </div>
-          </div>
-        )}
         <div className="flex items-center gap-2">
           <button
             onClick={handleBack}
